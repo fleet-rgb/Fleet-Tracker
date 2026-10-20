@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fleet Repair Cost Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-sub: #64748b;
+      --primary: #2563eb;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-main); padding: 24px; }
+    header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+    h1 { font-size: 1.5rem; font-weight: 700; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .kpi-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+    .kpi-title { font-size: 0.875rem; color: var(--text-sub); margin-bottom: 8px; }
+    .kpi-value { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+    .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; margin-bottom: 24px; }
+    .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+    .chart-title { font-size: 1rem; font-weight: 600; margin-bottom: 16px; }
+    .table-container { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; overflow-x: auto; }
+    .filter-bar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    input, select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; outline: none; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
+    th { background: #f1f5f9; padding: 12px; border-bottom: 1px solid var(--border); font-weight: 600; }
+    td { padding: 12px; border-bottom: 1px solid var(--border); }
+    tr:hover { background: #f8fafc; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🚛 Fleet Repair Cost Tracker</h1>
+  </header>
+
+  <!-- KPI Section -->
+  <section class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-title">Total Repair Cost</div>
+      <div class="kpi-value" id="kpi-total-cost">$329,276.79</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">Active Fleet Units</div>
+      <div class="kpi-value" id="kpi-units">36 Units</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">Highest Cost Unit</div>
+      <div class="kpi-value">Unit 106 ($27,767.90)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">Primary Maintenance Hub</div>
+      <div class="kpi-value">Our Shop ($302,007.13)</div>
+    </div>
+  </section>
+
+  <!-- Charts Section -->
+  <section class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Top 10 Units by Total Repair Cost</div>
+      <canvas id="costByUnitChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Spending Breakdown by Repair Location</div>
+      <canvas id="locationChart"></canvas>
+    </div>
+  </section>
+
+  <!-- Filterable Data Table -->
+  <section class="table-container">
+    <div class="chart-title">Maintenance Logs</div>
+    <div class="filter-bar">
+      <input type="text" id="searchInput" placeholder="Search notes, unit, location..." onkeyup="filterTable()">
+      <select id="locationFilter" onchange="filterTable()">
+        <option value="">All Repair Locations</option>
+        <option value="Our Shop">Our Shop</option>
+        <option value="Love's Truck Stop">Love's Truck Stop</option>
+        <option value="Wheel 2 Wheel">Wheel 2 Wheel</option>
+        <option value="Dealer">Dealer</option>
+        <option value="Other Shop">Other Shop</option>
+      </select>
+    </div>
+    <table id="logsTable">
+      <thead>
+        <tr>
+          <th>Unit Nr</th>
+          <th>Date</th>
+          <th>Odometer</th>
+          <th>Location</th>
+          <th>Description / Notes</th>
+          <th>Cost ($)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Data populated via JavaScript -->
+      </tbody>
+    </table>
+  </section>
+
+  <script>
+    const maintenanceData = [
+      { unit: "121", date: "1/15/2026", odo: "465,248", loc: "Our Shop", note: "PM Service", cost: 455.05 },
+      { unit: "121", date: "1/22/2026", odo: "465,283", loc: "Dealer", note: "Failed engine harness", cost: 499.62 },
+      { unit: "121", date: "4/3/2026", odo: "466,000", loc: "Our Shop", note: "Headlamp Repair and 4 airbags", cost: 3176.52 },
+      { unit: "121", date: "5/4/2026", odo: "527,981", loc: "Our Shop", note: "MTM Clutch Replacement", cost: 5029.79 },
+      { unit: "121", date: "8/21/2026", odo: "566,318", loc: "Our Shop", note: "DEF System Service", cost: 8555.48 },
+      { unit: "106", date: "1/1/2026", odo: "600,587", loc: "Our Shop", note: "REPLACE DPF FILTER", cost: 7968.68 },
+      { unit: "106", date: "2/27/2026", odo: "600,587", loc: "Our Shop", note: "CAN Line Error", cost: 3331.60 },
+      { unit: "106", date: "6/1/2026", odo: "642,284", loc: "Our Shop", note: "Faulty EGR valve", cost: 4142.44 },
+      { unit: "106", date: "6/12/2026", odo: "642,988", loc: "Our Shop", note: "BPV Replacement", cost: 5469.73 },
+      { unit: "124", date: "7/8/2026", odo: "561,952", loc: "Other Shop", note: "DEF pump dozer", cost: 3421.56 },
+      { unit: "124", date: "8/7/2026", odo: "574,174", loc: "Our Shop", note: "Passenger-Side Drive Tire Replacement (2 Tires)", cost: 3392.76 },
+      { unit: "134", date: "10/17/2025", odo: "219,841", loc: "Our Shop", note: "DPF SERVICE and Valve Adjustment", cost: 6933.19 },
+      { unit: "144", date: "7/22/2026", odo: "260,737", loc: "Our Shop", note: "PM SERVICE and DEF Service", cost: 10048.50 },
+      { unit: "147", date: "1/23/2026", odo: "141,015", loc: "Our Shop", note: "Instal new bumper and left fog light and deer guard", cost: 2699.40 },
+      { unit: "147", date: "7/22/2026", odo: "195,395", loc: "Our Shop", note: "DEF System Service", cost: 2849.17 },
+      { unit: "151", date: "7/29/2026", odo: "202,708", loc: "Our Shop", note: "DEF System Service", cost: 4181.51 },
+      { unit: "157", date: "2/26/2026", odo: "114,808", loc: "Our Shop", note: "REPLACE DEF HEADER", cost: 3173.96 },
+      { unit: "158", date: "7/22/2026", odo: "146,623", loc: "Our Shop", note: "DEF System Service", cost: 3921.27 }
+    ];
+
+    function populateTable(data) {
+      const tbody = document.querySelector("#logsTable tbody");
+      tbody.innerHTML = "";
+      data.forEach(item => {
+        const row = `<tr>
+          <td><strong>Unit ${item.unit}</strong></td>
+          <td>${item.date}</td>
+          <td>${item.odo}</td>
+          <td>${item.loc}</td>
+          <td>${item.note}</td>
+          <td>$${item.cost.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+      });
+    }
+
+    function filterTable() {
+      const search = document.getElementById("searchInput").value.toLowerCase();
+      const location = document.getElementById("locationFilter").value;
+
+      const filtered = maintenanceData.filter(item => {
+        const matchesSearch = item.unit.toLowerCase().includes(search) || 
+                              item.note.toLowerCase().includes(search) ||
+                              item.loc.toLowerCase().includes(search);
+        const matchesLoc = location === "" || item.loc === location;
+        return matchesSearch && matchesLoc;
+      });
+
+      populateTable(filtered);
+    }
+
+    // Render Charts
+    window.onload = function() {
+      populateTable(maintenanceData);
+
+      // Unit Cost Bar Chart
+      new Chart(document.getElementById('costByUnitChart'), {
+        type: 'bar',
+        data: {
+          labels: ['Unit 106', 'Unit 121', 'Unit 126', 'Unit 134', 'Unit 140', 'Unit 147', 'Unit 151', 'Unit 124', 'Unit 144', 'Unit 157'],
+          datasets: [{
+            label: 'Total Cost ($)',
+            data: [27767.90, 24285.97, 22377.65, 21287.31, 17405.25, 16885.53, 14568.91, 14059.97, 12313.27, 11820.26],
+            backgroundColor: '#2563eb'
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+
+      // Location Pie Chart
+      new Chart(document.getElementById('locationChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Our Shop', 'Other Shop', 'Wheel 2 Wheel', 'Love\'s Truck Stop', 'Over the Road', 'Dealer'],
+          datasets: [{
+            data: [302007.13, 12845.52, 9203.48, 2204.73, 2011.75, 1004.18],
+            backgroundColor: ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#64748b']
+          }]
+        },
+        options: { responsive: true }
+      });
+    };
+  </script>
+</body>
+</html>
